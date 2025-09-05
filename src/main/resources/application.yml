@@ -1,0 +1,36 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: rbro-mortgage-calculator-orchestrator
+
+
+loan-admin-service:
+  client:
+    endpoints:
+      rbro-loan-calculation-admin-service: https://rbro-loan-calculation-admin-service-www.apps.ocp4-test.rbro.rbg.cc/app/loan-admin
+
+fx-rates:
+  client:
+    endpoints:
+      fx-rates-service: https://rice-test.rbro.rbg.cc/gateway/rice/fx/rates
+
+management:
+  endpoint:
+    health:
+      show-details: always
+  endpoints:
+    web:
+      base-path: /management
+      exposure:
+        include: '*'
+
+springdoc:
+  paths-to-exclude:
+  paths-to-match: /**
+
+org:
+  owasp:
+    esapi:
+      resources: 'classpath:esapi/ESAPI.properties'

@@ -1,0 +1,73 @@
+buildscript {
+	ext {
+		springBootVersion = '3.3.7'
+		springDocVersion = '1.6.6'
+		junitVersion = '5.10.2'
+		ibmClient = '9.3.1.0'
+	}
+
+	configure([buildscript.repositories, project.repositories]) {
+		maven {
+			url rzbArtifactoryUrl
+			credentials {
+				username = rzbArtifactoryUserName
+				password = rzbArtifactoryPassword
+			}
+		}
+	}
+	dependencies {
+		classpath "org.springframework.boot:spring-boot-gradle-plugin:${springBootVersion}"
+	}
+}
+
+apply plugin: 'java'
+apply plugin: 'io.spring.dependency-management'
+apply plugin: 'idea'
+apply plugin: 'eclipse'
+apply plugin: 'org.springframework.boot'
+apply plugin: 'jacoco'
+
+sourceCompatibility = JavaVersion.VERSION_17
+targetCompatibility = JavaVersion.VERSION_17
+
+def targetEnv = System.properties['targetEnv'] ? System.properties['targetEnv'] : "TEST"
+targetEnv = targetEnv.toLowerCase()
+group = 'ro.raiffeisen.internet.leads.management' + targetEnv
+
+configurations {
+	compileOnly {
+		extendsFrom annotationProcessor
+	}
+}
+
+plugins.withType(JacocoPlugin) {
+	tasks["test"].finalizedBy 'jacocoTestReport'
+}
+
+
+
+dependencies {
+	implementation 'org.springframework.boot:spring-boot-starter-actuator'
+	implementation 'org.springframework.boot:spring-boot-starter-web'
+	implementation 'org.springframework:spring-web'
+	implementation 'org.springframework:spring-webmvc'
+	implementation "org.springdoc:springdoc-openapi-starter-webmvc-ui:2.3.0"
+	implementation 'org.springframework.boot:spring-boot-starter-validation'
+	implementation 'org.owasp.esapi:esapi:2.5.2.0'
+	implementation 'org.owasp.antisamy:antisamy:1.7.5'
+	implementation 'org.apache.poi:poi:5.2.0'
+
+	compileOnly 'org.projectlombok:lombok'
+
+	implementation 'org.springframework.security:spring-security-web'
+	implementation 'org.springframework.security:spring-security-core'
+
+	runtimeOnly 'org.postgresql:postgresql'
+	annotationProcessor 'org.projectlombok:lombok'
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.named('test') {
+	useJUnitPlatform()
+}
