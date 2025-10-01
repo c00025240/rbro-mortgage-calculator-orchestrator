@@ -220,7 +220,7 @@ public class MortgageCalculatorServiceTest {
                 .variableInterestAfterFixedInterest(5.66)
                 .yearsWithFixedInterest(3)
                 .discounts(List.of(Discount.builder()
-                                .discountName("avans 30")
+                                .discountName("avans")
                                 .discountValue(0.2)
                         .build()))
                 .build();
