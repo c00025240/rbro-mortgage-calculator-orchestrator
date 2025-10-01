@@ -2,6 +2,7 @@ package ro.raiffeisen.internet.mortgage_calculator.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import ro.raiffeisen.internet.mortgage_calculator.exception.UnprocessableEntityException;
 import ro.raiffeisen.internet.mortgage_calculator.helper.MortgageCalculatorMapper;
@@ -30,6 +31,7 @@ public class MortgageCalculatorService {
     private final MortgageCalculatorMapper mapper;
     private final ValidationService validationService;
 
+    @Cacheable(value = "mortgageCalculatorCache", keyGenerator = "mortgageRequestKeyGenerator")
     public MortgageCalculationResponse createCalculation(MortgageCalculationRequest request) {
         log.info("/calculator/mortgage-calculator request body:" + mapper.mapToJson(request));
         validationService.validateRequest(request);
@@ -59,11 +61,11 @@ public class MortgageCalculatorService {
         BigDecimal availableRate = initialCalculationService.calculateAvailableRate(request.getIncome());
 
         BigDecimal garantie = calculateGuaranteeAmount(additionalInfo, loanAmount.doubleValue());
-        BigDecimal garantiePentruDiscount = calculateGuaranteeAmountBigDecimal(70, loanAmount);
+        BigDecimal garantiePentruDiscount = calculateGuaranteeAmountBigDecimal(80, loanAmount);
 
         boolean shouldApplyGuaranteeDiscount = garantiePentruDiscount.compareTo(garantie) <= 0;
         if (shouldApplyGuaranteeDiscount) {
-            applyDiscount(interestRateAdditionalInfo, "avans 30", rateTypeFormula);
+            applyDiscount(interestRateAdditionalInfo, "avans", rateTypeFormula);
         }
 
         calculateMaxAmount(request, response, additionalInfo.getCurrency(), rateTypeFormula, availableRate, loanAmount);
@@ -98,7 +100,7 @@ public class MortgageCalculatorService {
 
         boolean shouldApplyDownPaymentDiscount = shouldApplyDownPaymentDiscount(downPayment, request.getLoanAmount().getAmount());
         if (shouldApplyDownPaymentDiscount)
-            applyDiscount(interestRateAdditionalInfo, "avans 30", rateTypeFormula);
+            applyDiscount(interestRateAdditionalInfo, "avans", rateTypeFormula);
 
         calculateMaxAmount(request, response, additionalInfo.getCurrency(), rateTypeFormula, availableRate, loanAmount);
         response.setLoanAmount(new Amount(additionalInfo.getCurrency(), initialCalculationService.getAmountWithAnalysisCommission(loanAmount.subtract(downPayment), additionalInfo.getAnalysisCommission())));
@@ -135,7 +137,7 @@ public class MortgageCalculatorService {
 
         boolean shouldApplyDownPaymentDiscount = shouldApplyDownPaymentDiscount(downPayment, request.getLoanAmount().getAmount());
         if (shouldApplyDownPaymentDiscount)
-            applyDiscount(interestRateAdditionalInfo, "avans 30", rateTypeFormula);
+            applyDiscount(interestRateAdditionalInfo, "avans", rateTypeFormula);
 
         response.setHousePrice(new Amount(additionalInfo.getCurrency(), BigDecimal.valueOf(maxLoanAmount).add(downPayment)));
         response.setDownPayment(new Amount(additionalInfo.getCurrency(), downPayment));
@@ -160,7 +162,7 @@ public class MortgageCalculatorService {
 
         BigDecimal valoareCredit = request.getLoanAmount().getAmount().subtract(contributieProprie);
         BigDecimal garantie = calculateGuaranteeAmountBigDecimal(additionalInfo.getLtv(), valoareCredit);
-        BigDecimal garantiePentruDiscount = calculateGuaranteeAmountBigDecimal(70, valoareCredit);
+        BigDecimal garantiePentruDiscount = calculateGuaranteeAmountBigDecimal(80, valoareCredit);
         BigDecimal sumeFaraJustificare = calculateNoDocAmount(valoareCredit);
 
         response.setMinGuaranteeAmount(garantie);
@@ -170,7 +172,7 @@ public class MortgageCalculatorService {
         InterestRateTypeFormula rateTypeFormula = calculateInterestRateBasedOnChosenDiscounts(interestRateAdditionalInfo, request);
         boolean shouldApplyGuaranteeDiscount = garantiePentruDiscount.compareTo(garantie) <= 0;
         if (shouldApplyGuaranteeDiscount) {
-            applyDiscount(interestRateAdditionalInfo, "avans 30", rateTypeFormula);
+            applyDiscount(interestRateAdditionalInfo, "avans", rateTypeFormula);
         }
 
         BigDecimal availableRate = initialCalculationService.calculateAvailableRate(request.getIncome());
@@ -289,7 +291,7 @@ public class MortgageCalculatorService {
 
         boolean shouldApplyDownPaymentDiscount = shouldApplyDownPaymentDiscount(response.getDownPayment().getAmount(), loanAmount);
         if (shouldApplyDownPaymentDiscount) {
-            applyDiscount(interestRateAdditionalInfo, "avans 30", rateTypeFormula);
+            applyDiscount(interestRateAdditionalInfo, "avans", rateTypeFormula);
         }
         calculateMaxAmount(request, response, currency, rateTypeFormula, availableRate, valoareCredit);
 
@@ -310,7 +312,7 @@ public class MortgageCalculatorService {
     }
 
     private boolean shouldApplyDownPaymentDiscount(BigDecimal downPayment, BigDecimal amount) {
-        return downPayment.compareTo(BigDecimal.valueOf(0.3).multiply(amount)) >= 0;
+        return downPayment.compareTo(BigDecimal.valueOf(0.2).multiply(amount)) >= 0;
     }
 
 
@@ -392,7 +394,7 @@ public class MortgageCalculatorService {
         BigDecimal totalPaymentDefaultValue = calculateTotalPaymentBasedOnDiscount(additionalInfo, request, "No discount", defaultInterestRate, interestRateAdditionalInfo);
 
         DiscountsValues discountsValues = new DiscountsValues();
-        discountsValues.setDiscountAmountDownPayment(calculateDiscountDifference(additionalInfo, request, "avans 30", defaultInterestRate, totalPaymentDefaultValue, interestRateAdditionalInfo));
+        discountsValues.setDiscountAmountDownPayment(calculateDiscountDifference(additionalInfo, request, "avans", defaultInterestRate, totalPaymentDefaultValue, interestRateAdditionalInfo));
         discountsValues.setDiscountAmountCasaVerde(calculateDiscountDifference(additionalInfo, request, "green house", defaultInterestRate, totalPaymentDefaultValue, interestRateAdditionalInfo));
         discountsValues.setDiscountAmountInsurance(calculateDiscountDifference(additionalInfo, request, "asigurare", defaultInterestRate, totalPaymentDefaultValue, interestRateAdditionalInfo));
         discountsValues.setDiscountAmountHasSalaryInTheBank(calculateDiscountDifference(additionalInfo, request, "client", defaultInterestRate, totalPaymentDefaultValue, interestRateAdditionalInfo));
@@ -403,7 +405,7 @@ public class MortgageCalculatorService {
         if (request.getInterestRateType() instanceof MixedInterestRateType) {
             defaultInterestRate = interestRateAdditionalInfo.getDefaultVariableInterestAfterFixedInterest();
             BigDecimal totalVariablePaymentDefaultValue = calculateTotalPaymentBasedOnDiscount(additionalInfo, request, "No discount", defaultInterestRate, interestRateAdditionalInfo);
-            calculatedValues.setVariableDiscountAmountDownPayment(calculateDiscountDifference(additionalInfo, request, "avans 30", defaultInterestRate, totalVariablePaymentDefaultValue, interestRateAdditionalInfo));
+            calculatedValues.setVariableDiscountAmountDownPayment(calculateDiscountDifference(additionalInfo, request, "avans", defaultInterestRate, totalVariablePaymentDefaultValue, interestRateAdditionalInfo));
             calculatedValues.setVariableDiscountAmountCasaVerde(calculateDiscountDifference(additionalInfo, request, "green house", defaultInterestRate, totalVariablePaymentDefaultValue, interestRateAdditionalInfo));
             calculatedValues.setVariableDiscountAmountInsurance(calculateDiscountDifference(additionalInfo, request, "asigurare", defaultInterestRate, totalVariablePaymentDefaultValue, interestRateAdditionalInfo));
             calculatedValues.setVariableDiscountAmountHasSalaryInTheBank(calculateDiscountDifference(additionalInfo, request, "client", defaultInterestRate, totalVariablePaymentDefaultValue, interestRateAdditionalInfo));

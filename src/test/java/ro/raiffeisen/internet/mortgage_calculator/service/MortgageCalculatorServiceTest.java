@@ -144,51 +144,74 @@ public class MortgageCalculatorServiceTest {
         assertThatThrownBy(() -> mortgageService.createCalculation(getRequest("CasaTa", BigDecimal.valueOf(5000000), null)))
                 .isInstanceOf(UnprocessableEntityException.class)
                 .hasMessage("Ne pare rau! ☹️\n" +
-                        "Valoarea creditului este prea mare pentru venitul si cheltuielile tale! Te rugam sa incerci o suma mai mica decat 206014.190000 Lei");
+                        "Valoarea creditului este prea mare pentru venitul si cheltuielile tale! Te rugam sa incerci o suma mai mica decat 209508.940000 Lei");
     }
 
     private MortgageCalculationResponse getMortgageCalculationResponse() {
         return MortgageCalculationResponse.builder()
                 .interestRateType(MixedInterestRateType.builder().interestRate(0).fixedPeriod(3).build())
-                .nominalInterestRate(BigDecimal.valueOf(6.75))
-                .interestRateFormula(new InterestRateFormula(3.99, 5.6))
+                .nominalInterestRate(BigDecimal.valueOf(6.55))
+                .interestRateFormula(new InterestRateFormula(3.79, 5.6))
                 .loanAmount(new Amount("RON", BigDecimal.valueOf(40500).setScale(2, RoundingMode.HALF_DOWN)))
-                .maxAmount(new Amount("RON", BigDecimal.valueOf(206014.19)))
+                .maxAmount(new Amount("RON", BigDecimal.valueOf(209508.94)))
                 .downPayment(new Amount("RON", BigDecimal.valueOf(10000).setScale(2, RoundingMode.HALF_DOWN)))
                 .loanAmountWithFee(new Amount("RON", BigDecimal.valueOf(40500).setScale(2, RoundingMode.HALF_DOWN)))
-                .totalPaymentAmount(new Amount("RON", BigDecimal.valueOf(74328)))
-                .monthlyInstallment(new MonthlyInstallment(BigDecimal.valueOf(304.88), BigDecimal.valueOf(278.78)))
-                .loanCosts(new LoanCosts(null,
-                        List.of(new LifeInsurance(new Amount("RON", BigDecimal.valueOf(10.53000000)), Frequency.MONTHLY)),
-                        new DiscountsValues(BigDecimal.ZERO.setScale(2, RoundingMode.HALF_DOWN), BigDecimal.ZERO.setScale(2, RoundingMode.HALF_DOWN), BigDecimal.ZERO.setScale(2, RoundingMode.HALF_DOWN), BigDecimal.valueOf(4.92)),
-                        new TotalDiscountsValues(BigDecimal.ZERO, BigDecimal.ZERO)))
-                .annualPercentageRate(BigDecimal.valueOf(6.64))
+                // .housePrice(null) // nu include deoarece nu era setat in actual si nu ai param cont in builder
+                .totalPaymentAmount(new Amount("RON", BigDecimal.valueOf(73087)))
+                .monthlyInstallment(new MonthlyInstallment(BigDecimal.valueOf(299.96), BigDecimal.valueOf(274.08)))
+                .loanCosts(new LoanCosts(
+                        null,
+                        List.of(new LifeInsurance(new Amount("RON", BigDecimal.valueOf(10.53)), Frequency.MONTHLY)),
+                        new DiscountsValues(
+                                BigDecimal.ZERO.setScale(2, RoundingMode.HALF_DOWN),
+                                BigDecimal.ZERO.setScale(2, RoundingMode.HALF_DOWN),
+                                BigDecimal.ZERO.setScale(2, RoundingMode.HALF_DOWN),
+                                BigDecimal.valueOf(4.92)
+                        ),
+                        new TotalDiscountsValues(
+                                BigDecimal.valueOf(4.92),
+                                BigDecimal.valueOf(1248.72)
+                        )
+                ))
+                .annualPercentageRate(BigDecimal.valueOf(6.43))
                 .tenor(22)
                 .build();
     }
 
+
     private MortgageCalculationResponse getMortgageCalculationResponseForConstructie() {
         return MortgageCalculationResponse.builder()
                 .interestRateType(MixedInterestRateType.builder().interestRate(0).fixedPeriod(3).build())
-                .nominalInterestRate(BigDecimal.valueOf(6.75))
-                .interestRateFormula(new InterestRateFormula(3.99, 5.6))
+                .nominalInterestRate(BigDecimal.valueOf(6.55))
+                .interestRateFormula(new InterestRateFormula(3.79, 5.6))
                 .loanAmount(new Amount("RON", BigDecimal.valueOf(50500).setScale(2, RoundingMode.HALF_DOWN)))
-                .maxAmount(new Amount("RON", BigDecimal.valueOf(206014.19)))
+                .maxAmount(new Amount("RON", BigDecimal.valueOf(209508.94)))
                 .downPayment(new Amount("RON", BigDecimal.ZERO))
                 .loanAmountWithFee(new Amount("RON", BigDecimal.valueOf(50500).setScale(2, RoundingMode.HALF_DOWN)))
-                .housePrice(new Amount("RON", BigDecimal.valueOf(71428.55).setScale(6, RoundingMode.HALF_DOWN)))
-                .totalPaymentAmount(new Amount("RON", BigDecimal.valueOf(91867)))
-                .monthlyInstallment(new MonthlyInstallment(BigDecimal.valueOf(377.69), BigDecimal.valueOf(345.14)))
+                .housePrice(new Amount("RON", BigDecimal.valueOf(62500).setScale(6, RoundingMode.HALF_DOWN)))
+                .totalPaymentAmount(new Amount("RON", BigDecimal.valueOf(90321)))
+                .monthlyInstallment(new MonthlyInstallment(BigDecimal.valueOf(371.56), BigDecimal.valueOf(339.29)))
                 .loanCosts(new LoanCosts(null,
                         List.of(new LifeInsurance(new Amount("RON", BigDecimal.valueOf(13.13)), Frequency.MONTHLY)),
-                        new DiscountsValues(BigDecimal.ZERO.setScale(2, RoundingMode.HALF_DOWN), BigDecimal.ZERO.setScale(2, RoundingMode.HALF_DOWN), BigDecimal.ZERO.setScale(2, RoundingMode.HALF_DOWN), BigDecimal.valueOf(6.13)),
-                        new TotalDiscountsValues(BigDecimal.valueOf(0), BigDecimal.valueOf(0))))
-                .annualPercentageRate(BigDecimal.valueOf(6.48))
+                        new DiscountsValues(
+                                BigDecimal.ZERO.setScale(2, RoundingMode.HALF_DOWN),
+                                BigDecimal.ZERO.setScale(2, RoundingMode.HALF_DOWN),
+                                BigDecimal.ZERO.setScale(2, RoundingMode.HALF_DOWN),
+                                BigDecimal.valueOf(6.13)
+                        ),
+                        new TotalDiscountsValues(
+                                BigDecimal.valueOf(6.13),
+                                BigDecimal.valueOf(1554.48)
+                        )
+                ))
+                .annualPercentageRate(BigDecimal.valueOf(6.27))
                 .noDocAmount(BigDecimal.valueOf(15000).setScale(1, RoundingMode.HALF_DOWN))
                 .minGuaranteeAmount(BigDecimal.valueOf(62500).setScale(6, RoundingMode.HALF_DOWN))
                 .tenor(22)
+                .commissionDescription(null)
                 .build();
     }
+
 
     private MortgageCalculationResponse getMortgageCalculationResponseWhenAvans30() {
         return MortgageCalculationResponse.builder()
@@ -220,7 +243,7 @@ public class MortgageCalculatorServiceTest {
                 .variableInterestAfterFixedInterest(5.66)
                 .yearsWithFixedInterest(3)
                 .discounts(List.of(Discount.builder()
-                                .discountName("avans 30")
+                                .discountName("avans")
                                 .discountValue(0.2)
                         .build()))
                 .build();

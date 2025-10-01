@@ -53,10 +53,11 @@ dependencies {
 	implementation 'org.springframework:spring-webmvc'
 	implementation "org.springdoc:springdoc-openapi-starter-webmvc-ui:2.3.0"
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
+	implementation 'org.springframework:spring-context'
 	implementation 'org.owasp.esapi:esapi:2.5.2.0'
 	implementation 'org.owasp.antisamy:antisamy:1.7.5'
 	implementation 'org.apache.poi:poi:5.2.0'
-
+    implementation 'com.github.ben-manes.caffeine:caffeine:3.1.8'
 	compileOnly 'org.projectlombok:lombok'
 
 	implementation 'org.springframework.security:spring-security-web'
