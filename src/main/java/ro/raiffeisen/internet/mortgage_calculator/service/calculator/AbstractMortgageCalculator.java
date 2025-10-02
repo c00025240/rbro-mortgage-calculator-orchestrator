@@ -16,6 +16,7 @@ import java.math.RoundingMode;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -225,10 +226,14 @@ public abstract class AbstractMortgageCalculator implements MortgageCalculator {
             MortgageCalculationRequest request,
             AdditionalCalculationInfo additionalInfo,
             InterestRateAdditionalInfo interestRateAdditionalInfo) {
-        List<RepaymentPlanEntry> repaymentPlanEntries = new ArrayList<>();
-        for (int i = 0; i <= request.getTenor(); i++) {
+        int tenor = request.getTenor();
+        // Pre-allocate capacity to avoid resizing during adds
+        List<RepaymentPlanEntry> repaymentPlanEntries = new ArrayList<>(tenor + 1);
+        
+        for (int i = 0; i <= tenor; i++) {
             repaymentPlanEntries.add(serviceUtil.createRepaymentPlanEntry(i, request, additionalInfo, interestRateAdditionalInfo));
         }
+        
         return repaymentPlanEntries;
     }
 
@@ -281,57 +286,84 @@ public abstract class AbstractMortgageCalculator implements MortgageCalculator {
             LoanCosts loanCosts,
             InterestRateAdditionalInfo interestRateAdditionalInfo) {
         double defaultInterestRate = interestRateAdditionalInfo.getDefaultInterestRate();
-        BigDecimal totalPaymentDefaultValue = calculateTotalPaymentBasedOnDiscount(additionalInfo, request, "No discount", defaultInterestRate, interestRateAdditionalInfo);
-
+        
+        // Extract all discount values in a single pass using a Map
+        Map<String, Double> discountMap = interestRateAdditionalInfo.getDiscounts().stream()
+                .collect(Collectors.toMap(
+                        ro.raiffeisen.internet.mortgage_calculator.model.client.Discount::getDiscountName,
+                        ro.raiffeisen.internet.mortgage_calculator.model.client.Discount::getDiscountValue
+                ));
+        
+        // Get individual discount values with defaults
+        double avansDiscount = discountMap.getOrDefault("avans", 0.0);
+        double casaVerdeDiscount = discountMap.getOrDefault("green house", 0.0);
+        double asigurareDiscount = discountMap.getOrDefault("asigurare", 0.0);
+        double clientDiscount = discountMap.getOrDefault("client", 0.0);
+        
         DiscountsValues discountsValues = new DiscountsValues();
-        discountsValues.setDiscountAmountDownPayment(calculateDiscountDifference(additionalInfo, request, "avans", defaultInterestRate, totalPaymentDefaultValue, interestRateAdditionalInfo));
-        discountsValues.setDiscountAmountCasaVerde(calculateDiscountDifference(additionalInfo, request, "green house", defaultInterestRate, totalPaymentDefaultValue, interestRateAdditionalInfo));
-        discountsValues.setDiscountAmountInsurance(calculateDiscountDifference(additionalInfo, request, "asigurare", defaultInterestRate, totalPaymentDefaultValue, interestRateAdditionalInfo));
-        discountsValues.setDiscountAmountHasSalaryInTheBank(calculateDiscountDifference(additionalInfo, request, "client", defaultInterestRate, totalPaymentDefaultValue, interestRateAdditionalInfo));
+        
+        // Calculate base payment once (no discount)
+        interestRateAdditionalInfo.setInterestRate(defaultInterestRate);
+        List<RepaymentPlanEntry> baseEntries = createPartialRepaymentPlanEntries(request, additionalInfo, interestRateAdditionalInfo);
+        BigDecimal basePayment = baseEntries.get(1).getTotalPaymentAmount().getAmount();
+        
+        // Calculate each discount's impact (only if discount value > 0)
+        discountsValues.setDiscountAmountDownPayment(
+                calculateDiscountImpact(avansDiscount, defaultInterestRate, basePayment, request, additionalInfo, interestRateAdditionalInfo));
+        discountsValues.setDiscountAmountCasaVerde(
+                calculateDiscountImpact(casaVerdeDiscount, defaultInterestRate, basePayment, request, additionalInfo, interestRateAdditionalInfo));
+        discountsValues.setDiscountAmountInsurance(
+                calculateDiscountImpact(asigurareDiscount, defaultInterestRate, basePayment, request, additionalInfo, interestRateAdditionalInfo));
+        discountsValues.setDiscountAmountHasSalaryInTheBank(
+                calculateDiscountImpact(clientDiscount, defaultInterestRate, basePayment, request, additionalInfo, interestRateAdditionalInfo));
 
         loanCosts.setDiscounts(discountsValues);
 
         CalculatedValues calculatedValues = new CalculatedValues();
         if (request.getInterestRateType() instanceof MixedInterestRateType) {
+            // For mixed rate, calculate variable discount impacts
             defaultInterestRate = interestRateAdditionalInfo.getDefaultVariableInterestAfterFixedInterest();
-            BigDecimal totalVariablePaymentDefaultValue = calculateTotalPaymentBasedOnDiscount(additionalInfo, request, "No discount", defaultInterestRate, interestRateAdditionalInfo);
-            calculatedValues.setVariableDiscountAmountDownPayment(calculateDiscountDifference(additionalInfo, request, "avans", defaultInterestRate, totalVariablePaymentDefaultValue, interestRateAdditionalInfo));
-            calculatedValues.setVariableDiscountAmountCasaVerde(calculateDiscountDifference(additionalInfo, request, "green house", defaultInterestRate, totalVariablePaymentDefaultValue, interestRateAdditionalInfo));
-            calculatedValues.setVariableDiscountAmountInsurance(calculateDiscountDifference(additionalInfo, request, "asigurare", defaultInterestRate, totalVariablePaymentDefaultValue, interestRateAdditionalInfo));
-            calculatedValues.setVariableDiscountAmountHasSalaryInTheBank(calculateDiscountDifference(additionalInfo, request, "client", defaultInterestRate, totalVariablePaymentDefaultValue, interestRateAdditionalInfo));
+            
+            interestRateAdditionalInfo.setInterestRate(defaultInterestRate);
+            List<RepaymentPlanEntry> varBaseEntries = createPartialRepaymentPlanEntries(request, additionalInfo, interestRateAdditionalInfo);
+            BigDecimal varBasePayment = varBaseEntries.get(1).getTotalPaymentAmount().getAmount();
+            
+            calculatedValues.setVariableDiscountAmountDownPayment(
+                    calculateDiscountImpact(avansDiscount, defaultInterestRate, varBasePayment, request, additionalInfo, interestRateAdditionalInfo));
+            calculatedValues.setVariableDiscountAmountCasaVerde(
+                    calculateDiscountImpact(casaVerdeDiscount, defaultInterestRate, varBasePayment, request, additionalInfo, interestRateAdditionalInfo));
+            calculatedValues.setVariableDiscountAmountInsurance(
+                    calculateDiscountImpact(asigurareDiscount, defaultInterestRate, varBasePayment, request, additionalInfo, interestRateAdditionalInfo));
+            calculatedValues.setVariableDiscountAmountHasSalaryInTheBank(
+                    calculateDiscountImpact(clientDiscount, defaultInterestRate, varBasePayment, request, additionalInfo, interestRateAdditionalInfo));
         }
 
         return calculatedValues;
     }
 
-    private BigDecimal calculateDiscountDifference(
-            AdditionalCalculationInfo additionalInfo,
+    /**
+     * Calculate the impact of a single discount on the payment amount.
+     * Returns ZERO if discount value is 0, otherwise calculates the difference.
+     */
+    private BigDecimal calculateDiscountImpact(
+            double discountValue,
+            double baseInterestRate,
+            BigDecimal basePayment,
             MortgageCalculationRequest request,
-            String discountName,
-            double defaultInterestRate,
-            BigDecimal totalPaymentDefaultValue,
+            AdditionalCalculationInfo additionalInfo,
             InterestRateAdditionalInfo interestRateAdditionalInfo) {
-        BigDecimal totalPaymentWithDiscount = calculateTotalPaymentBasedOnDiscount(additionalInfo, request, discountName, defaultInterestRate, interestRateAdditionalInfo);
-        return totalPaymentDefaultValue.subtract(totalPaymentWithDiscount);
+        
+        if (discountValue == 0) {
+            return BigDecimal.ZERO;
+        }
+        
+        interestRateAdditionalInfo.setInterestRate(baseInterestRate - discountValue);
+        List<RepaymentPlanEntry> discountEntries = createPartialRepaymentPlanEntries(request, additionalInfo, interestRateAdditionalInfo);
+        BigDecimal discountPayment = discountEntries.get(1).getTotalPaymentAmount().getAmount();
+        
+        return basePayment.subtract(discountPayment);
     }
 
-    private BigDecimal calculateTotalPaymentBasedOnDiscount(
-            AdditionalCalculationInfo additionalInfo,
-            MortgageCalculationRequest request,
-            String discountName,
-            double defaultInterestRate,
-            InterestRateAdditionalInfo interestRateAdditionalInfo) {
-        double discountValue = interestRateAdditionalInfo.getDiscounts().stream()
-                .filter(discount -> discount.getDiscountName().equals(discountName))
-                .findFirst()
-                .orElse(Discount.builder().discountValue(0d).build())
-                .getDiscountValue();
-
-        interestRateAdditionalInfo.setInterestRate(defaultInterestRate - discountValue);
-
-        List<RepaymentPlanEntry> repaymentPlanEntries = createPartialRepaymentPlanEntries(request, additionalInfo, interestRateAdditionalInfo);
-        return repaymentPlanEntries.get(1).getTotalPaymentAmount().getAmount();
-    }
 
     private List<RepaymentPlanEntry> createPartialRepaymentPlanEntries(
             MortgageCalculationRequest request,
