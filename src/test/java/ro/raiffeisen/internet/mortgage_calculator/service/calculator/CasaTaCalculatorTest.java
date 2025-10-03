@@ -21,6 +21,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.lenient;
 
 @ExtendWith(MockitoExtension.class)
 class CasaTaCalculatorTest {
@@ -58,7 +59,7 @@ class CasaTaCalculatorTest {
                 null, // no down payment provided
                 22
         );
-        MortgageCalculationResponse response = new MortgageCalculationResponse();
+        MortgageCalculationResponse response = MortgageCalculationResponse.builder().build();
 
         AdditionalCalculationInfo additionalInfo = createAdditionalInfo();
         InterestRateAdditionalInfo rateInfo = createRateInfo();
@@ -69,7 +70,14 @@ class CasaTaCalculatorTest {
         when(serviceUtil.calculateCreditAmount(any(), eq(80))).thenReturn(BigDecimal.valueOf(40000));
         when(serviceUtil.calculatePV(anyDouble(), anyInt(), anyDouble())).thenReturn(200000.0);
         when(serviceUtil.getAmountWithAnalysisCommission(any(), any())).thenReturn(BigDecimal.valueOf(40500));
-        when(serviceUtil.createRepaymentPlanEntry(anyInt(), any(), any(), any())).thenReturn(new ro.raiffeisen.internet.mortgage_calculator.model.repayment.RepaymentPlanEntry());
+        ro.raiffeisen.internet.mortgage_calculator.model.repayment.RepaymentPlanEntry mockEntry = new ro.raiffeisen.internet.mortgage_calculator.model.repayment.RepaymentPlanEntry();
+        mockEntry.setTotalPaymentAmount(new Amount("RON", BigDecimal.valueOf(2000)));
+        mockEntry.setInstallmentAmount(new Amount("RON", BigDecimal.valueOf(1800)));
+        mockEntry.setReimbursedCapitalAmount(new Amount("RON", BigDecimal.valueOf(1000)));
+        mockEntry.setInterestAmount(new Amount("RON", BigDecimal.valueOf(500)));
+        mockEntry.setFeeAmount(new Amount("RON", BigDecimal.valueOf(50)));
+        mockEntry.setRemainingLoanAmount(new Amount("RON", BigDecimal.valueOf(99000)));
+        when(serviceUtil.createRepaymentPlanEntry(anyInt(), any(), any(), any())).thenReturn(mockEntry);
         when(serviceUtil.calculateMonthlyInstallment(anyBoolean(), any(), any(), any())).thenReturn(new MonthlyInstallment(BigDecimal.ZERO, BigDecimal.valueOf(300)));
         when(serviceUtil.calculateDAE(any(), any(), any())).thenReturn(BigDecimal.valueOf(6.5));
         when(serviceUtil.calculateTotalPayment(any(), any())).thenReturn(new Amount("RON", BigDecimal.valueOf(70000)));
@@ -94,7 +102,7 @@ class CasaTaCalculatorTest {
                 downPayment,
                 22
         );
-        MortgageCalculationResponse response = new MortgageCalculationResponse();
+        MortgageCalculationResponse response = MortgageCalculationResponse.builder().build();
 
         setupMocks();
 
@@ -113,7 +121,7 @@ class CasaTaCalculatorTest {
                 BigDecimal.valueOf(20000), // 40% down payment
                 22
         );
-        MortgageCalculationResponse response = new MortgageCalculationResponse();
+        MortgageCalculationResponse response = MortgageCalculationResponse.builder().build();
 
         setupMocks();
 
@@ -133,7 +141,7 @@ class CasaTaCalculatorTest {
                 BigDecimal.valueOf(60000), // More than loan amount
                 22
         );
-        MortgageCalculationResponse response = new MortgageCalculationResponse();
+        MortgageCalculationResponse response = MortgageCalculationResponse.builder().build();
 
         AdditionalCalculationInfo additionalInfo = createAdditionalInfo();
         InterestRateAdditionalInfo rateInfo = createRateInfo();
@@ -159,7 +167,7 @@ class CasaTaCalculatorTest {
         );
         AdditionalCalculationInfo additionalInfo = createAdditionalInfo();
         
-        when(serviceUtil.calculateCreditAmount(any(), eq(80))).thenReturn(BigDecimal.valueOf(40000));
+        // No mocks needed - request has explicit downPayment so calculateCreditAmount is not called
 
         // When
         boolean result = calculator.shouldApplyGuaranteeDiscount(request, additionalInfo);
@@ -178,7 +186,7 @@ class CasaTaCalculatorTest {
         );
         AdditionalCalculationInfo additionalInfo = createAdditionalInfo();
         
-        when(serviceUtil.calculateCreditAmount(any(), eq(80))).thenReturn(BigDecimal.valueOf(40000));
+        // No mocks needed - request has explicit downPayment so calculateCreditAmount is not called
 
         // When
         boolean result = calculator.shouldApplyGuaranteeDiscount(request, additionalInfo);
@@ -195,7 +203,7 @@ class CasaTaCalculatorTest {
                 null,
                 22
         );
-        MortgageCalculationResponse response = new MortgageCalculationResponse();
+        MortgageCalculationResponse response = MortgageCalculationResponse.builder().build();
 
         setupMocks();
 
@@ -239,6 +247,7 @@ class CasaTaCalculatorTest {
                 .buildingInsurancePremiumRate(BigDecimal.ZERO)
                 .monthlyCurrentAccountCommission(BigDecimal.valueOf(5))
                 .lifeInsurance(BigDecimal.valueOf(0.026))
+                .monthlyLifeInsurance(new LifeInsurance(new Amount("RON", BigDecimal.valueOf(10)), Frequency.MONTHLY))
                 .ircc(5.6f)
                 .feeCommission(BigDecimal.valueOf(533.037))
                 .postGrantCommission(BigDecimal.TEN)
@@ -269,17 +278,29 @@ class CasaTaCalculatorTest {
         AdditionalCalculationInfo additionalInfo = createAdditionalInfo();
         InterestRateAdditionalInfo rateInfo = createRateInfo();
         
-        when(serviceUtil.retrieveAdditionalInfo(any())).thenReturn(additionalInfo);
-        when(serviceUtil.retrieveInterestRate(any(), anyInt())).thenReturn(rateInfo);
-        when(serviceUtil.calculateAvailableRate(any())).thenReturn(BigDecimal.valueOf(4000));
-        when(serviceUtil.calculateCreditAmount(any(), eq(80))).thenReturn(BigDecimal.valueOf(40000));
-        when(serviceUtil.calculatePV(anyDouble(), anyInt(), anyDouble())).thenReturn(200000.0);
-        when(serviceUtil.getAmountWithAnalysisCommission(any(), any())).thenReturn(BigDecimal.valueOf(40500));
-        when(serviceUtil.createRepaymentPlanEntry(anyInt(), any(), any(), any())).thenReturn(new ro.raiffeisen.internet.mortgage_calculator.model.repayment.RepaymentPlanEntry());
-        when(serviceUtil.calculateMonthlyInstallment(anyBoolean(), any(), any(), any())).thenReturn(new MonthlyInstallment(BigDecimal.ZERO, BigDecimal.valueOf(300)));
-        when(serviceUtil.calculateDAE(any(), any(), any())).thenReturn(BigDecimal.valueOf(6.5));
-        when(serviceUtil.calculateTotalPayment(any(), any())).thenReturn(new Amount("RON", BigDecimal.valueOf(70000)));
-        when(serviceUtil.calculateBuildingInsurancePremiumRate(any(), any(), any(), anyInt(), any())).thenReturn(BigDecimal.TEN);
+        // Core mocks - always needed
+        lenient().when(serviceUtil.retrieveAdditionalInfo(any())).thenReturn(additionalInfo);
+        lenient().when(serviceUtil.retrieveInterestRate(any(), anyInt())).thenReturn(rateInfo);
+        
+        // Optional mocks - not always used
+        lenient().when(serviceUtil.calculateAvailableRate(any())).thenReturn(BigDecimal.valueOf(4000));
+        lenient().when(serviceUtil.calculateCreditAmount(any(), eq(80))).thenReturn(BigDecimal.valueOf(40000));
+        lenient().when(serviceUtil.calculatePV(anyDouble(), anyInt(), anyDouble())).thenReturn(200000.0);
+        lenient().when(serviceUtil.getAmountWithAnalysisCommission(any(), any())).thenReturn(BigDecimal.valueOf(40500));
+        
+        ro.raiffeisen.internet.mortgage_calculator.model.repayment.RepaymentPlanEntry mockEntry = new ro.raiffeisen.internet.mortgage_calculator.model.repayment.RepaymentPlanEntry();
+        mockEntry.setTotalPaymentAmount(new Amount("RON", BigDecimal.valueOf(2000)));
+        mockEntry.setInstallmentAmount(new Amount("RON", BigDecimal.valueOf(1800)));
+        mockEntry.setReimbursedCapitalAmount(new Amount("RON", BigDecimal.valueOf(1000)));
+        mockEntry.setInterestAmount(new Amount("RON", BigDecimal.valueOf(500)));
+        mockEntry.setFeeAmount(new Amount("RON", BigDecimal.valueOf(50)));
+        mockEntry.setRemainingLoanAmount(new Amount("RON", BigDecimal.valueOf(99000)));
+        lenient().when(serviceUtil.createRepaymentPlanEntry(anyInt(), any(), any(), any())).thenReturn(mockEntry);
+        
+        lenient().when(serviceUtil.calculateMonthlyInstallment(anyBoolean(), any(), any(), any())).thenReturn(new MonthlyInstallment(BigDecimal.ZERO, BigDecimal.valueOf(300)));
+        lenient().when(serviceUtil.calculateDAE(any(), any(), any())).thenReturn(BigDecimal.valueOf(6.5));
+        lenient().when(serviceUtil.calculateTotalPayment(any(), any())).thenReturn(new Amount("RON", BigDecimal.valueOf(70000)));
+        lenient().when(serviceUtil.calculateBuildingInsurancePremiumRate(any(), any(), any(), anyInt(), any())).thenReturn(BigDecimal.TEN);
     }
 }
 

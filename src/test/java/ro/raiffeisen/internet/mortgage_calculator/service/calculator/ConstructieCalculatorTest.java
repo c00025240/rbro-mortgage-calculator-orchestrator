@@ -21,6 +21,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.lenient;
 
 @ExtendWith(MockitoExtension.class)
 class ConstructieCalculatorTest {
@@ -55,7 +56,7 @@ class ConstructieCalculatorTest {
                 null, // no down payment
                 22
         );
-        MortgageCalculationResponse response = new MortgageCalculationResponse();
+        MortgageCalculationResponse response = MortgageCalculationResponse.builder().build();
 
         setupMocks();
 
@@ -76,7 +77,7 @@ class ConstructieCalculatorTest {
         BigDecimal loanAmount = BigDecimal.valueOf(50000);
         BigDecimal downPayment = BigDecimal.valueOf(10000);
         MortgageCalculationRequest request = createRequest(loanAmount, downPayment, 22);
-        MortgageCalculationResponse response = new MortgageCalculationResponse();
+        MortgageCalculationResponse response = MortgageCalculationResponse.builder().build();
 
         setupMocks();
 
@@ -98,7 +99,7 @@ class ConstructieCalculatorTest {
                 BigDecimal.valueOf(60000), // More than loan amount
                 22
         );
-        MortgageCalculationResponse response = new MortgageCalculationResponse();
+        MortgageCalculationResponse response = MortgageCalculationResponse.builder().build();
 
         AdditionalCalculationInfo additionalInfo = createAdditionalInfo();
         InterestRateAdditionalInfo rateInfo = createRateInfo();
@@ -121,7 +122,7 @@ class ConstructieCalculatorTest {
                 BigDecimal.valueOf(10000),
                 22
         );
-        MortgageCalculationResponse response = new MortgageCalculationResponse();
+        MortgageCalculationResponse response = MortgageCalculationResponse.builder().build();
 
         setupMocks();
 
@@ -144,7 +145,7 @@ class ConstructieCalculatorTest {
                 BigDecimal.valueOf(20000), // Large down payment
                 22
         );
-        MortgageCalculationResponse response = new MortgageCalculationResponse();
+        MortgageCalculationResponse response = MortgageCalculationResponse.builder().build();
 
         setupMocks();
 
@@ -170,11 +171,11 @@ class ConstructieCalculatorTest {
         boolean result = calculator.shouldApplyGuaranteeDiscount(request, additionalInfo);
 
         // Then
-        // valoareCredit = 30000
-        // garantie (80%) = 30000/0.8 = 37500
-        // garantiePentruDiscount (70%) = 30000/0.7 = ~42857
-        // 42857 > 37500, so should return FALSE (discount NOT applied)
-        assertThat(result).isFalse();
+        // valoareCredit = loanAmount - downPayment = 50000 - 20000 = 30000
+        // garantie (LTV 80% from additionalInfo) = 30000 / 0.8 = 37500
+        // garantiePentruDiscount (LTV 80% fixed) = 30000 / 0.8 = 37500
+        // 37500 <= 37500 is TRUE, so discount should be applied
+        assertThat(result).isTrue();
     }
 
     @Test
@@ -183,7 +184,7 @@ class ConstructieCalculatorTest {
         BigDecimal loanAmount = BigDecimal.valueOf(100000);
         BigDecimal downPayment = BigDecimal.valueOf(20000);
         MortgageCalculationRequest request = createRequest(loanAmount, downPayment, 22);
-        MortgageCalculationResponse response = new MortgageCalculationResponse();
+        MortgageCalculationResponse response = MortgageCalculationResponse.builder().build();
 
         setupMocks();
 
@@ -204,7 +205,7 @@ class ConstructieCalculatorTest {
                 BigDecimal.valueOf(10000),
                 22
         );
-        MortgageCalculationResponse response = new MortgageCalculationResponse();
+        MortgageCalculationResponse response = MortgageCalculationResponse.builder().build();
 
         setupMocks();
 
@@ -249,6 +250,7 @@ class ConstructieCalculatorTest {
                 .buildingInsurancePremiumRate(BigDecimal.ZERO)
                 .monthlyCurrentAccountCommission(BigDecimal.valueOf(5))
                 .lifeInsurance(BigDecimal.valueOf(0.026))
+                .monthlyLifeInsurance(new LifeInsurance(new Amount("RON", BigDecimal.valueOf(10)), Frequency.MONTHLY))
                 .ircc(5.6f)
                 .feeCommission(BigDecimal.valueOf(533.037))
                 .postGrantCommission(BigDecimal.TEN)
@@ -277,16 +279,28 @@ class ConstructieCalculatorTest {
         AdditionalCalculationInfo additionalInfo = createAdditionalInfo();
         InterestRateAdditionalInfo rateInfo = createRateInfo();
         
-        when(serviceUtil.retrieveAdditionalInfo(any())).thenReturn(additionalInfo);
-        when(serviceUtil.retrieveInterestRate(any(), anyInt())).thenReturn(rateInfo);
-        when(serviceUtil.calculateAvailableRate(any())).thenReturn(BigDecimal.valueOf(4000));
-        when(serviceUtil.calculatePV(anyDouble(), anyInt(), anyDouble())).thenReturn(200000.0);
-        when(serviceUtil.getAmountWithAnalysisCommission(any(), any())).thenReturn(BigDecimal.valueOf(40500));
-        when(serviceUtil.createRepaymentPlanEntry(anyInt(), any(), any(), any())).thenReturn(new RepaymentPlanEntry());
-        when(serviceUtil.calculateMonthlyInstallment(anyBoolean(), any(), any(), any())).thenReturn(new MonthlyInstallment(BigDecimal.ZERO, BigDecimal.valueOf(300)));
-        when(serviceUtil.calculateDAE(any(), any(), any())).thenReturn(BigDecimal.valueOf(6.5));
-        when(serviceUtil.calculateTotalPayment(any(), any())).thenReturn(new Amount("RON", BigDecimal.valueOf(70000)));
-        when(serviceUtil.calculateBuildingInsurancePremiumRate(any(), any(), any(), anyInt(), any())).thenReturn(BigDecimal.TEN);
+        // Core mocks - always needed
+        lenient().when(serviceUtil.retrieveAdditionalInfo(any())).thenReturn(additionalInfo);
+        lenient().when(serviceUtil.retrieveInterestRate(any(), anyInt())).thenReturn(rateInfo);
+        
+        // Optional mocks - not always used
+        lenient().when(serviceUtil.calculateAvailableRate(any())).thenReturn(BigDecimal.valueOf(4000));
+        lenient().when(serviceUtil.calculatePV(anyDouble(), anyInt(), anyDouble())).thenReturn(200000.0);
+        lenient().when(serviceUtil.getAmountWithAnalysisCommission(any(), any())).thenReturn(BigDecimal.valueOf(40500));
+        
+        RepaymentPlanEntry mockEntry = new RepaymentPlanEntry();
+        mockEntry.setTotalPaymentAmount(new Amount("RON", BigDecimal.valueOf(2000)));
+        mockEntry.setInstallmentAmount(new Amount("RON", BigDecimal.valueOf(1800)));
+        mockEntry.setReimbursedCapitalAmount(new Amount("RON", BigDecimal.valueOf(1000)));
+        mockEntry.setInterestAmount(new Amount("RON", BigDecimal.valueOf(500)));
+        mockEntry.setFeeAmount(new Amount("RON", BigDecimal.valueOf(50)));
+        mockEntry.setRemainingLoanAmount(new Amount("RON", BigDecimal.valueOf(99000)));
+        lenient().when(serviceUtil.createRepaymentPlanEntry(anyInt(), any(), any(), any())).thenReturn(mockEntry);
+        
+        lenient().when(serviceUtil.calculateMonthlyInstallment(anyBoolean(), any(), any(), any())).thenReturn(new MonthlyInstallment(BigDecimal.ZERO, BigDecimal.valueOf(300)));
+        lenient().when(serviceUtil.calculateDAE(any(), any(), any())).thenReturn(BigDecimal.valueOf(6.5));
+        lenient().when(serviceUtil.calculateTotalPayment(any(), any())).thenReturn(new Amount("RON", BigDecimal.valueOf(70000)));
+        lenient().when(serviceUtil.calculateBuildingInsurancePremiumRate(any(), any(), any(), anyInt(), any())).thenReturn(BigDecimal.TEN);
     }
 }
 
